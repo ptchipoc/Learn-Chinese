@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { DirectionMode, RoundResult, VocabTerm } from "@/types/vocabulary";
 import {
   generateMatchBoard,
   shuffleArray,
   type MatchBoard,
+  type MatchCell,
 } from "@/utils/gameGenerators";
 import { formatTime } from "@/utils/format";
 import { useSoundEffects } from "@/hooks/useSoundEffects";
@@ -269,6 +270,42 @@ export default function MatchGame({
   const primaryLabel = board.primarySide === "pinyin" ? "Pinyin" : "English";
   const secondaryLabel = board.primarySide === "pinyin" ? "English" : "Pinyin";
 
+  /**
+   * One board cell. Cells are rendered as direct children of a single grid
+   * (left/right interleaved per row) with `grid-auto-rows-fr`, so every box —
+   * English or Pinyin — gets the exact same height even when text wraps.
+   */
+  const renderCell = (cell: MatchCell, side: "left" | "right", index: number) => {
+    const isMatched = matchedIds.includes(cell.termId);
+    const isSelected = side === "left" ? selectedLeft === index : selectedRight === index;
+    const isWrong = (side === "left" ? wrongPair?.left : wrongPair?.right) === index;
+    return (
+      <button
+        key={`${side}-${index}`}
+        ref={(el) => {
+          const map = side === "left" ? leftRefs.current : rightRefs.current;
+          if (el) map.set(index, el);
+          else map.delete(index);
+        }}
+        type="button"
+        disabled={isMatched}
+        onClick={() => (side === "left" ? clickLeft(index) : clickRight(index))}
+        aria-pressed={isSelected}
+        className={[
+          `focus-ring match-cell match-cell-${side} relative z-10 flex w-full items-center justify-center rounded-xl border px-3 py-3 text-center text-sm font-medium transition-all sm:text-base`,
+          isWrong ? "anim-shake" : "",
+          isMatched
+            ? "cursor-default border-good/60 bg-good-soft text-ink opacity-90"
+            : isSelected
+              ? "border-accent bg-accent-soft text-ink shadow-[0_0_0_1px_var(--accent)]"
+              : "border-edge bg-surface-2 text-ink hover:border-edge-strong hover:bg-surface-3",
+        ].join(" ")}
+      >
+        {cell.text}
+      </button>
+    );
+  };
+
   if (totalPairs === 0) {
     return (
       <div className="rounded-2xl border border-edge bg-surface p-8 text-center text-ink-dim">
@@ -326,7 +363,10 @@ export default function MatchGame({
           <span>{secondaryLabel}</span>
         </div>
 
-        <div ref={containerRef} className="relative grid grid-cols-2 gap-x-4 sm:gap-x-16">
+        <div
+          ref={containerRef}
+          className="relative grid grid-cols-2 auto-rows-fr gap-x-4 gap-y-2.5 sm:gap-x-16"
+        >
           {/* Connecting lines */}
           <svg
             className="pointer-events-none absolute inset-0 z-0 h-full w-full overflow-visible"
@@ -347,71 +387,18 @@ export default function MatchGame({
             ))}
           </svg>
 
-          {/* Left column */}
-          <div className="relative z-10 flex flex-col gap-2.5">
-            {board.left.map((cell, index) => {
-              const isMatched = matchedIds.includes(cell.termId);
-              const isSelected = selectedLeft === index;
-              const isWrong = wrongPair?.left === index;
-              return (
-                <button
-                  key={`${cell.termId}-${index}`}
-                  ref={(el) => {
-                    if (el) leftRefs.current.set(index, el);
-                    else leftRefs.current.delete(index);
-                  }}
-                  type="button"
-                  disabled={isMatched}
-                  onClick={() => clickLeft(index)}
-                  aria-pressed={isSelected}
-                  className={[
-                    "focus-ring rounded-xl border px-3 py-3 text-sm font-medium transition-all sm:text-base",
-                    isWrong ? "anim-shake" : "",
-                    isMatched
-                      ? "cursor-default border-good/60 bg-good-soft text-ink opacity-90"
-                      : isSelected
-                        ? "border-accent bg-accent-soft text-ink shadow-[0_0_0_1px_var(--accent)]"
-                        : "border-edge bg-surface-2 text-ink hover:border-edge-strong hover:bg-surface-3",
-                  ].join(" ")}
-                >
-                  {cell.text}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Right column */}
-          <div className="relative z-10 flex flex-col gap-2.5">
-            {board.right.map((cell, index) => {
-              const isMatched = matchedIds.includes(cell.termId);
-              const isSelected = selectedRight === index;
-              const isWrong = wrongPair?.right === index;
-              return (
-                <button
-                  key={`${cell.termId}-${index}`}
-                  ref={(el) => {
-                    if (el) rightRefs.current.set(index, el);
-                    else rightRefs.current.delete(index);
-                  }}
-                  type="button"
-                  disabled={isMatched}
-                  onClick={() => clickRight(index)}
-                  aria-pressed={isSelected}
-                  className={[
-                    "focus-ring rounded-xl border px-3 py-3 text-sm font-medium transition-all sm:text-base",
-                    isWrong ? "anim-shake" : "",
-                    isMatched
-                      ? "cursor-default border-good/60 bg-good-soft text-ink opacity-90"
-                      : isSelected
-                        ? "border-accent bg-accent-soft text-ink shadow-[0_0_0_1px_var(--accent)]"
-                        : "border-edge bg-surface-2 text-ink hover:border-edge-strong hover:bg-surface-3",
-                  ].join(" ")}
-                >
-                  {cell.text}
-                </button>
-              );
-            })}
-          </div>
+          {/* Interleaved rows: left cell + right cell share the same grid row,
+              so both boxes always have identical dimensions. */}
+          {board.left.map((leftCell, index) => {
+            const rightCell = board.right[index];
+            if (!rightCell) return null;
+            return (
+              <Fragment key={`row-${index}`}>
+                {renderCell(leftCell, "left", index)}
+                {renderCell(rightCell, "right", index)}
+              </Fragment>
+            );
+          })}
         </div>
 
         <p className="mt-4 text-center text-xs text-ink-faint">
