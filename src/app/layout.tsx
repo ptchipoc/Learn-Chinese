@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import OfflineIndicator from "@/components/OfflineIndicator";
+import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,6 +18,12 @@ export const metadata: Metadata = {
   title: "Pinyin Practice — Chinese Vocabulary in Pinyin & English",
   description:
     "Practice Chinese vocabulary using only Pinyin and English. Quizzes, matching games, and study sheets — no Chinese characters.",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Learn Chinese",
+  },
+  formatDetection: { telephone: false },
 };
 
 /**
@@ -34,6 +42,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="flex min-h-full flex-col bg-canvas text-ink">
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
+        <ServiceWorkerRegistration />
+        <OfflineIndicator />
         {children}
       </body>
     </html>

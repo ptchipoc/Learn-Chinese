@@ -81,7 +81,7 @@ export default function Navbar({ onOpenReference }: NavbarProps) {
             </svg>
           </span>
           <div className="leading-tight">
-            <p className="text-sm font-semibold tracking-tight text-ink">Pinyin Practice</p>
+            <p className="text-sm font-semibold tracking-tight text-ink">Learn Chinese</p>
             <p className="hidden text-[11px] text-ink-faint sm:block">
               Vocabulary in Pinyin &amp; English only
             </p>
